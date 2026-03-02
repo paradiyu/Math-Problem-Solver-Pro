@@ -22,7 +22,7 @@ def get_compressed_image_bytes(path):
 
 def process_pipeline(image_path):
     client = genai.Client(
-        http_options=types.HttpOptions(base_url=BASE_URL, timeout=60000),
+        http_options=types.HttpOptions(base_url=BASE_URL, timeout=600000),
         api_key=API_KEY
     )
 
@@ -40,7 +40,13 @@ def process_pipeline(image_path):
             contents=[
                 types.Part.from_bytes(data=image_bytes, mime_type='image/jpeg'),
                 '解决这个问题，要求数学过程严格，使用严谨的数学语言，解答的时候将题目抄一遍，使用中文解答。'
-            ]
+            ],
+            config=types.GenerateContentConfig(
+                http_options=types.HttpOptions(
+                    timeout=600000 
+                )
+            )
+            
         )
         
         answer_text = text_response.text
@@ -68,7 +74,12 @@ def process_pipeline(image_path):
         with Image.open(image_path) as raw_img:
             image_draw_response = client.models.generate_content(
                 model=MODEL_IMAGE,
-                contents=[draw_prompt, raw_img]
+                contents=[draw_prompt, raw_img],
+                config=types.GenerateContentConfig(
+                    http_options=types.HttpOptions(
+                        timeout=600000
+                    )
+                )
             )
 
         # 保存图片逻辑
