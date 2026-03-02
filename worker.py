@@ -1,5 +1,6 @@
 import io
 import os
+import sys
 from google import genai
 from google.genai import types
 from PIL import Image
@@ -14,14 +15,14 @@ def get_compressed_image_bytes(path):
     with Image.open(path) as img:
         if img.mode != 'RGB':
             img = img.convert('RGB')
-        img.thumbnail((1600, 1600))
+        img.thumbnail((1024, 1024))
         img_byte_arr = io.BytesIO()
         img.save(img_byte_arr, format='JPEG', quality=85)
         return img_byte_arr.getvalue()
 
 def process_pipeline(image_path):
     client = genai.Client(
-        http_options=types.HttpOptions(base_url=BASE_URL),
+        http_options=types.HttpOptions(base_url=BASE_URL, timeout=60000),
         api_key=API_KEY
     )
 
@@ -39,12 +40,7 @@ def process_pipeline(image_path):
             contents=[
                 types.Part.from_bytes(data=image_bytes, mime_type='image/jpeg'),
                 '解决这个问题，要求数学过程严格，使用严谨的数学语言，解答的时候将题目抄一遍，使用中文解答。'
-            ],
-            config=types.GenerateContentConfig(
-                http_options=types.HttpOptions(
-                    timeout=300000 # 5 分钟超时，绘图通常较慢
-                )
-            )
+            ]
         )
         
         answer_text = text_response.text
@@ -72,12 +68,7 @@ def process_pipeline(image_path):
         with Image.open(image_path) as raw_img:
             image_draw_response = client.models.generate_content(
                 model=MODEL_IMAGE,
-                contents=[draw_prompt, raw_img],
-                config=types.GenerateContentConfig(
-                http_options=types.HttpOptions(
-                    timeout=300000 # 5 分钟超时，绘图通常较慢
-                )
-            )
+                contents=[draw_prompt, raw_img]
             )
 
         # 保存图片逻辑
@@ -96,10 +87,17 @@ def process_pipeline(image_path):
         print(f"❌ 流程中断: {e}")
 
 if __name__ == "__main__":
-    for i in range(14, 15):
-        target = f'./lilin-{i:06d}.png'
-        print(f"正在处理文件: {target}")
+    # sys.argv[0] 是脚本名，sys.argv[1:] 是后面所有的参数
+    targets = sys.argv[1:]
+
+    if not targets:
+        print("用法: python worker.py <文件1> <文件2> ...")
+        print("示例: python worker.py lilin-000001.png")
+        sys.exit(1)
+
+    for target in targets:
         if os.path.exists(target):
+            print(f"正在处理文件: {target}")
             process_pipeline(target)
         else:
             print(f"错误：找不到文件 {target}")
